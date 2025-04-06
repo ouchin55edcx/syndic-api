@@ -36,7 +36,7 @@ exports.createReunion = async (req, res) => {
       startTime,
       endTime,
       location,
-      createdBy: req.userId 
+      createdBy: req.userId
     };
 
     const reunion = await Reunion.create(reunionData);
@@ -66,7 +66,7 @@ exports.getAllReunions = async (req, res) => {
 
     const reunions = await Reunion.findAll();
 
-  
+
     return res.status(200).json({
       success: true,
       count: reunions.length,
@@ -155,7 +155,7 @@ exports.getReunionById = async (req, res) => {
 
     if (req.userRole === 'proprietaire') {
       const relationship = await ReunionProprietaire.findByReunionAndProprietaire(id, req.userId);
-      
+
       if (!relationship) {
         return res.status(403).json({
           success: false,
@@ -208,7 +208,7 @@ exports.updateReunion = async (req, res) => {
       });
     }
 
- 
+
     if (reunion.createdBy !== req.userId) {
       return res.status(403).json({
         success: false,
@@ -219,7 +219,7 @@ exports.updateReunion = async (req, res) => {
 
     const updatedReunion = await reunion.update(req.body);
 
- 
+
     return res.status(200).json({
       success: true,
       message: 'Reunion updated successfully',
@@ -239,7 +239,7 @@ exports.deleteReunion = async (req, res) => {
   try {
     const { id } = req.params;
 
-   
+
     if (req.userRole !== 'syndic') {
       return res.status(403).json({
         success: false,
@@ -268,7 +268,7 @@ exports.deleteReunion = async (req, res) => {
 
     await reunion.delete();
 
- 
+
     return res.status(200).json({
       success: true,
       message: 'Reunion deleted successfully'
@@ -287,7 +287,7 @@ exports.cancelReunion = async (req, res) => {
   try {
     const { id } = req.params;
 
-    
+
     if (req.userRole !== 'syndic') {
       return res.status(403).json({
         success: false,
@@ -426,7 +426,7 @@ exports.inviteProprietaires = async (req, res) => {
       try {
 
         const proprietaire = await Proprietaire.findById(proprietaireId);
-        
+
         if (!proprietaire) {
           failedInvitations.push({
             proprietaireId,
@@ -436,7 +436,7 @@ exports.inviteProprietaires = async (req, res) => {
         }
 
         const existingInvitation = await ReunionProprietaire.findByReunionAndProprietaire(id, proprietaireId);
-        
+
         if (existingInvitation) {
           failedInvitations.push({
             proprietaireId,
@@ -530,7 +530,7 @@ exports.getInvitedProprietaires = async (req, res) => {
 
     const invitedProprietaires = await ReunionProprietaire.getInvitedProprietairesWithDetails(id);
 
- 
+
     return res.status(200).json({
       success: true,
       count: invitedProprietaires.length,
@@ -657,7 +657,7 @@ exports.updateInvitationStatus = async (req, res) => {
 
     await invitation.updateStatus(status);
 
- 
+
     return res.status(200).json({
       success: true,
       message: `Invitation ${status}`,
@@ -668,6 +668,68 @@ exports.updateInvitationStatus = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message || 'Error updating invitation status'
+    });
+  }
+};
+
+/**
+ * Get all invitations for a reunion
+ * This endpoint is accessible to both syndics and proprietaires
+ */
+exports.getAllInvitationsByReunionId = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // First, check if the reunion exists
+    const reunion = await Reunion.findById(id);
+    if (!reunion) {
+      return res.status(404).json({
+        success: false,
+        message: 'Reunion not found'
+      });
+    }
+
+    // Check permissions
+    if (req.userRole === 'syndic') {
+      // Syndics can only view invitations for reunions they created
+      if (reunion.createdBy !== req.userId) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only view invitations for reunions you created'
+        });
+      }
+    } else if (req.userRole === 'proprietaire') {
+      // Proprietaires can only view invitations if they are invited to the reunion
+      const isInvited = await ReunionProprietaire.findByReunionAndProprietaire(id, req.userId);
+      if (!isInvited) {
+        return res.status(403).json({
+          success: false,
+          message: 'You are not invited to this reunion'
+        });
+      }
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: 'Unauthorized access'
+      });
+    }
+
+    // Get all invitations with proprietaire details
+    const invitations = await ReunionProprietaire.getInvitedProprietairesWithDetails(id);
+
+    return res.status(200).json({
+      success: true,
+      count: invitations.length,
+      reunionId: id,
+      reunionTitle: reunion.title,
+      reunionDate: reunion.date,
+      invitations: invitations
+    });
+  } catch (error) {
+    console.error('Error getting invitations by reunion ID:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Error getting invitations'
     });
   }
 };

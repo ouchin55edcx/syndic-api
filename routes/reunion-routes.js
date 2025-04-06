@@ -27,6 +27,9 @@ router.post('/:id/invite', reunionController.inviteProprietaires);
 
 router.get('/:id/invited', reunionController.getInvitedProprietaires);
 
+// Get all invitations for a reunion (accessible to both syndics and proprietaires)
+router.get('/:id/invitations', reunionController.getAllInvitationsByReunionId);
+
 router.put('/:id/attendance/:proprietaireId', reunionController.updateAttendance);
 
 router.put('/:id/status', reunionController.updateInvitationStatus);

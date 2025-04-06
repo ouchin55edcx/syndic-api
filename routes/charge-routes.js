@@ -19,6 +19,9 @@ router.get('/appartement/:appartementId', chargeController.getChargesByApparteme
 // Get charges by proprietaire ID
 router.get('/proprietaire/:proprietaireId', chargeController.getChargesByProprietaire);
 
+// Get charges for the current proprietaire (me)
+router.get('/my-charges', chargeController.getMyCharges);
+
 // Get a single charge by ID
 router.get('/:id', chargeController.getChargeById);
 

@@ -145,6 +145,64 @@ exports.getChargesByAppartement = async (req, res) => {
   }
 };
 
+exports.getMyCharges = async (req, res) => {
+  try {
+    // This endpoint is only for proprietaires
+    if (req.userRole !== 'proprietaire') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only proprietaires can access this endpoint'
+      });
+    }
+
+    const proprietaireId = req.userId;
+
+    const proprietaire = await Proprietaire.findById(proprietaireId);
+    if (!proprietaire) {
+      return res.status(404).json({
+        success: false,
+        message: 'Propriétaire non trouvé'
+      });
+    }
+
+    const charges = await Charge.findByProprietaireId(proprietaireId);
+
+    const appartements = await Appartement.findByProprietaireId(proprietaireId);
+    const chargesByAppartement = {};
+
+    for (const appartement of appartements) {
+      chargesByAppartement[appartement.id] = {
+        appartementInfo: appartement.toJSON(),
+        charges: charges
+          .filter(charge => charge.appartementId === appartement.id)
+          .map(charge => charge.toJSON())
+      };
+    }
+
+    const totalCharges = charges.reduce((sum, charge) => sum + parseFloat(charge.montant), 0);
+    const totalPaid = charges.reduce((sum, charge) => sum + parseFloat(charge.montantPaye), 0);
+    const totalRemaining = charges.reduce((sum, charge) => sum + parseFloat(charge.montantRestant), 0);
+
+    return res.status(200).json({
+      success: true,
+      proprietaireId,
+      proprietaireName: `${proprietaire.firstName} ${proprietaire.lastName}`,
+      totalCharges,
+      totalPaid,
+      totalRemaining,
+      count: charges.length,
+      chargesByAppartement,
+      charges: charges.map(c => c.toJSON())
+    });
+  } catch (error) {
+    console.error('Error getting my charges:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Erreur lors de la récupération de vos charges'
+    });
+  }
+};
+
 exports.getChargesByProprietaire = async (req, res) => {
   try {
     const { proprietaireId } = req.params;

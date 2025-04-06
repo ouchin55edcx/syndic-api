@@ -7,9 +7,9 @@ class Proprietaire extends User {
 
     this.role = 'proprietaire';
 
-    this.appartementId = data.appartementId || null; 
-    this.apartmentNumber = data.apartmentNumber || null; 
-    this.buildingId = data.buildingId || null; 
+    this.appartementId = data.appartementId || null;
+    this.apartmentNumber = data.apartmentNumber || null;
+    this.buildingId = data.buildingId || null;
     this.ownershipDate = data.ownershipDate || new Date().toISOString();
     this.createdBy = data.createdBy || null;
   }
@@ -54,8 +54,8 @@ class Proprietaire extends User {
         phoneNumber: proprietaireData.phoneNumber,
         role: 'proprietaire',
         appartementId: proprietaireData.appartementId,
-        apartmentNumber: proprietaireData.apartmentNumber || null, 
-        buildingId: proprietaireData.buildingId || null, 
+        apartmentNumber: proprietaireData.apartmentNumber || null,
+        buildingId: proprietaireData.buildingId || null,
         ownershipDate: proprietaireData.ownershipDate || new Date().toISOString(),
         createdBy: proprietaireData.createdBy || null,
         createdAt: new Date().toISOString(),
@@ -124,6 +124,27 @@ class Proprietaire extends User {
       return proprietaires;
     } catch (error) {
       console.error('Error finding all proprietaires:', error);
+      throw error;
+    }
+  }
+
+  static async countDocuments(query = {}) {
+    try {
+      let queryRef = db.collection('users').where('role', '==', 'proprietaire');
+
+      // Apply filters from the query object
+      if (query.syndicId) {
+        queryRef = queryRef.where('createdBy', '==', query.syndicId);
+      }
+
+      if (query.appartementId) {
+        queryRef = queryRef.where('appartementId', '==', query.appartementId);
+      }
+
+      const snapshot = await queryRef.get();
+      return snapshot.size;
+    } catch (error) {
+      console.error('Error counting proprietaires:', error);
       throw error;
     }
   }

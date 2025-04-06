@@ -150,6 +150,31 @@ class Charge {
     }
   }
 
+  static async countDocuments(query = {}) {
+    try {
+      let queryRef = db.collection('charges');
+
+      // Apply filters from the query object
+      if (query.syndicId) {
+        queryRef = queryRef.where('syndicId', '==', query.syndicId);
+      }
+
+      if (query.statut) {
+        queryRef = queryRef.where('statut', '==', query.statut);
+      }
+
+      if (query.appartementId) {
+        queryRef = queryRef.where('appartementId', '==', query.appartementId);
+      }
+
+      const snapshot = await queryRef.get();
+      return snapshot.size;
+    } catch (error) {
+      console.error('Error counting charges:', error);
+      throw error;
+    }
+  }
+
   async update(chargeData) {
     try {
       const updateData = {

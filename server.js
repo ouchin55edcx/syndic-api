@@ -13,6 +13,7 @@ const chargeRoutes = require('./routes/charge-routes');
 const financialReportRoutes = require('./routes/financial-report-routes');
 const paymentRoutes = require('./routes/payment-routes');
 const appartementRoutes = require('./routes/appartement-routes');
+const statisticsRoutes = require('./routes/statistics-routes');
 const path = require('path');
 
 // Import initialization scripts
@@ -47,6 +48,7 @@ app.use('/api/charges', chargeRoutes);
 app.use('/api/financial-reports', financialReportRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/appartements', appartementRoutes);
+app.use('/api/statistics', statisticsRoutes);
 
 // Home route
 app.get('/', (req, res) => {

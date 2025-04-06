@@ -6,14 +6,14 @@ class Payment {
     this.id = id;
     this.montant = data.montant;
     this.datePayment = data.datePayment || new Date().toISOString();
-    this.methodePaiement = data.methodePaiement || 'espèces'; 
-    this.reference = data.reference || null; 
+    this.methodePaiement = data.methodePaiement || 'espèces';
+    this.reference = data.reference || null;
     this.chargeId = data.chargeId;
-    this.proprietaireId = data.proprietaireId; 
-    this.syndicId = data.syndicId; 
-    this.statut = data.statut || 'confirmé'; 
+    this.proprietaireId = data.proprietaireId;
+    this.syndicId = data.syndicId;
+    this.statut = data.statut || 'confirmé';
     this.isPartial = data.isPartial || false;
-    this.remainingAmount = data.remainingAmount !== undefined && data.remainingAmount !== null ? data.remainingAmount : 0; 
+    this.remainingAmount = data.remainingAmount !== undefined && data.remainingAmount !== null ? data.remainingAmount : 0;
     this.notes = data.notes || '';
     this.createdAt = data.createdAt || new Date().toISOString();
     this.updatedAt = data.updatedAt || new Date().toISOString();
@@ -181,6 +181,31 @@ class Payment {
       return payments;
     } catch (error) {
       console.error('Error finding payments by syndic ID:', error);
+      throw error;
+    }
+  }
+
+  static async countDocuments(query = {}) {
+    try {
+      let queryRef = db.collection('payments');
+
+      // Apply filters from the query object
+      if (query.syndicId) {
+        queryRef = queryRef.where('syndicId', '==', query.syndicId);
+      }
+
+      if (query.statut) {
+        queryRef = queryRef.where('statut', '==', query.statut);
+      }
+
+      if (query.proprietaireId) {
+        queryRef = queryRef.where('proprietaireId', '==', query.proprietaireId);
+      }
+
+      const snapshot = await queryRef.get();
+      return snapshot.size;
+    } catch (error) {
+      console.error('Error counting payments:', error);
       throw error;
     }
   }

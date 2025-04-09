@@ -626,12 +626,13 @@ exports.generatePaymentReminder = async (req, res) => {
       });
     }
 
-    if (charge.statut === 'payé') {
-      return res.status(400).json({
-        success: false,
-        message: 'Cette charge est déjà payée intégralement'
-      });
-    }
+    // Remove the paid status check
+    // if (charge.statut === 'payé') {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: 'Cette charge est déjà payée intégralement'
+    //   });
+    // }
 
     if (charge.syndicId !== req.userId) {
       let isAuthorized = false;
@@ -703,14 +704,11 @@ exports.generatePaymentReminder = async (req, res) => {
       pdfUrl: pdfUrl
     });
 
-    if (charge.statut !== 'en retard') {
-      await charge.markAsOverdue();
-    } else {
-      await db.collection('charges').doc(charge.id).update({
-        dernierRappel: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-    }
+    // Update dernierRappel regardless of charge status
+    await db.collection('charges').doc(charge.id).update({
+      dernierRappel: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
 
     return res.status(200).json({
       success: true,

@@ -2,6 +2,7 @@ const Charge = require('../models/charge');
 const Appartement = require('../models/appartement');
 const Immeuble = require('../models/immeuble');
 const Proprietaire = require('../models/proprietaire');
+const Payment = require('../models/payment');
 const { admin } = require('../config/firebase-config');
 
 exports.createCharge = async (req, res) => {
@@ -82,12 +83,52 @@ exports.getAllCharges = async (req, res) => {
       });
     }
 
+    // Get all charges for the syndic
     const charges = await Charge.findBySyndicId(req.userId);
+
+    // Get all payments for these charges
+    const payments = await Payment.findBySyndicId(req.userId);
+
+    // Process each charge to include payment information
+    const processedCharges = charges.map(charge => {
+      // Filter confirmed payments for this charge
+      const chargePayments = payments.filter(p => 
+        p.chargeId === charge.id && p.statut === 'confirmé'
+      );
+
+      // Calculate total amount paid
+      const totalPaid = chargePayments.reduce((sum, payment) => 
+        sum + parseFloat(payment.montant), 0
+      );
+
+      // Calculate remaining amount
+      const remainingAmount = parseFloat(charge.montant) - totalPaid;
+
+      // Determine charge status based on payments
+      let status = charge.statut;
+      if (totalPaid === 0) {
+        status = 'non payé';
+      } else if (totalPaid > 0 && remainingAmount > 0) {
+        status = 'partiellement payé';
+      } else if (remainingAmount === 0) {
+        status = 'payé';
+      }
+      // Note: We don't change status if remainingAmount < 0
+
+      // Return charge with updated payment information
+      return {
+        ...charge.toJSON(),
+        montantPaye: totalPaid,
+        montantRestant: Math.max(0, remainingAmount), // Ensure we don't show negative remaining amount
+        statut: status,
+        paiements: chargePayments.map(p => p.toJSON())
+      };
+    });
 
     return res.status(200).json({
       success: true,
-      count: charges.length,
-      charges: charges.map(c => c.toJSON())
+      count: processedCharges.length,
+      charges: processedCharges
     });
   } catch (error) {
     console.error('Error getting charges:', error);

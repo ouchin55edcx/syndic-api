@@ -6,44 +6,30 @@ class Proprietaire extends User {
     super(id, data);
 
     this.role = 'proprietaire';
-
     this.appartementId = data.appartementId || null;
-    this.apartmentNumber = data.apartmentNumber || null;
+    this.apartmentNumber = null; // We'll populate this from the apartment data
     this.buildingId = data.buildingId || null;
     this.ownershipDate = data.ownershipDate || new Date().toISOString();
     this.createdBy = data.createdBy || null;
+
+    // If we have apartment data, use it to populate apartmentNumber
+    if (data.apartmentNumber) {
+      this.apartmentNumber = data.apartmentNumber;
+    }
   }
 
   static async create(proprietaireData) {
     try {
       proprietaireData.role = 'proprietaire';
 
-      const proprietaireSnapshot = await db.collection('users')
-        .where('email', '==', proprietaireData.email)
-        .get();
-
-      if (!proprietaireSnapshot.empty) {
-        throw new Error('User with this email already exists');
-      }
-
-      if (!proprietaireData.appartementId) {
-        throw new Error('Appartement ID is required for creating a proprietaire');
-      }
-
-      const appartementRef = db.collection('appartements').doc(proprietaireData.appartementId);
-      const appartementDoc = await appartementRef.get();
-
-      if (!appartementDoc.exists) {
-        throw new Error('Appartement not found');
-      }
-
-      const existingProprietaireSnapshot = await db.collection('users')
-        .where('role', '==', 'proprietaire')
-        .where('appartementId', '==', proprietaireData.appartementId)
-        .get();
-
-      if (!existingProprietaireSnapshot.empty) {
-        throw new Error('This appartement is already assigned to another proprietaire');
+      // Get apartment details to set the apartment number
+      if (proprietaireData.appartementId) {
+        const appartementRef = db.collection('appartements').doc(proprietaireData.appartementId);
+        const appartementDoc = await appartementRef.get();
+        
+        if (appartementDoc.exists) {
+          proprietaireData.apartmentNumber = appartementDoc.data().numero;
+        }
       }
 
       const proprietaireRef = await db.collection('users').add({
@@ -54,16 +40,11 @@ class Proprietaire extends User {
         phoneNumber: proprietaireData.phoneNumber,
         role: 'proprietaire',
         appartementId: proprietaireData.appartementId,
-        apartmentNumber: proprietaireData.apartmentNumber || null,
+        apartmentNumber: proprietaireData.apartmentNumber,
         buildingId: proprietaireData.buildingId || null,
         ownershipDate: proprietaireData.ownershipDate || new Date().toISOString(),
         createdBy: proprietaireData.createdBy || null,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-
-      await appartementRef.update({
-        proprietaireId: proprietaireRef.id,
         updatedAt: new Date().toISOString()
       });
 
@@ -117,9 +98,21 @@ class Proprietaire extends User {
 
       const proprietaires = [];
 
-      proprietairesSnapshot.forEach(doc => {
-        proprietaires.push(new Proprietaire(doc.id, doc.data()));
-      });
+      for (const doc of proprietairesSnapshot.docs) {
+        const data = doc.data();
+        
+        // Get apartment details if appartementId exists
+        if (data.appartementId) {
+          const appartementRef = db.collection('appartements').doc(data.appartementId);
+          const appartementDoc = await appartementRef.get();
+          
+          if (appartementDoc.exists) {
+            data.apartmentNumber = appartementDoc.data().numero;
+          }
+        }
+
+        proprietaires.push(new Proprietaire(doc.id, data));
+      }
 
       return proprietaires;
     } catch (error) {
@@ -200,7 +193,11 @@ class Proprietaire extends User {
     const json = super.toJSON();
     return {
       ...json,
-      appartementId: this.appartementId
+      appartementId: this.appartementId,
+      apartmentNumber: this.apartmentNumber,
+      buildingId: this.buildingId,
+      ownershipDate: this.ownershipDate,
+      createdBy: this.createdBy
     };
   }
 }

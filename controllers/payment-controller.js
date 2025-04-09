@@ -627,8 +627,8 @@ exports.generatePaymentReminder = async (req, res) => {
     }
 
     // Check if the charge is actually fully paid by calculating the total payments
-    const payments = await Payment.findByChargeId(chargeId);
-    const confirmedPayments = payments.filter(p => p.statut === 'confirmé');
+    const chargePayments = await Payment.findByChargeId(chargeId);
+    const confirmedPayments = chargePayments.filter(p => p.statut === 'confirmé');
     const totalPaid = confirmedPayments.reduce((sum, payment) =>
       sum + parseFloat(payment.montant), 0
     );
@@ -703,8 +703,7 @@ exports.generatePaymentReminder = async (req, res) => {
       });
     }
 
-    const payments = await Payment.findByChargeId(chargeId);
-
+    // Use the payments we already fetched above
     const pdfsDir = ensureUploadsDirectory();
     const pdfFileName = `avis_client_${chargeId}_${new Date().getTime()}.pdf`;
     const pdfPath = path.join(pdfsDir, pdfFileName);
@@ -714,7 +713,7 @@ exports.generatePaymentReminder = async (req, res) => {
       proprietaire,
       appartement,
       immeuble,
-      payments
+      payments: chargePayments
     }, pdfPath);
 
     const pdfUrl = `/uploads/pdfs/${pdfFileName}`;

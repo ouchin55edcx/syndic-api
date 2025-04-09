@@ -82,7 +82,18 @@ class Proprietaire extends User {
         return null;
       }
 
-      return new Proprietaire(proprietaireDoc.id, proprietaireDoc.data());
+      const proprietaire = new Proprietaire(proprietaireDoc.id, proprietaireDoc.data());
+
+      // If the proprietaire has an appartementId, fetch the apartment details
+      if (proprietaire.appartementId) {
+        const appartementDoc = await db.collection('appartements').doc(proprietaire.appartementId).get();
+        if (appartementDoc.exists) {
+          // Update the apartmentNumber with the actual apartment number
+          proprietaire.apartmentNumber = appartementDoc.data().numero;
+        }
+      }
+
+      return proprietaire;
     } catch (error) {
       console.error('Error finding proprietaire by ID:', error);
       throw error;
@@ -98,9 +109,21 @@ class Proprietaire extends User {
 
       const proprietaires = [];
 
-      proprietairesSnapshot.forEach(doc => {
-        proprietaires.push(new Proprietaire(doc.id, doc.data()));
-      });
+      // Create proprietaire objects
+      for (const doc of proprietairesSnapshot.docs) {
+        const proprietaire = new Proprietaire(doc.id, doc.data());
+
+        // If the proprietaire has an appartementId, fetch the apartment details
+        if (proprietaire.appartementId) {
+          const appartementDoc = await db.collection('appartements').doc(proprietaire.appartementId).get();
+          if (appartementDoc.exists) {
+            // Update the apartmentNumber with the actual apartment number
+            proprietaire.apartmentNumber = appartementDoc.data().numero;
+          }
+        }
+
+        proprietaires.push(proprietaire);
+      }
 
       return proprietaires;
     } catch (error) {
@@ -117,9 +140,21 @@ class Proprietaire extends User {
 
       const proprietaires = [];
 
-      proprietairesSnapshot.forEach(doc => {
-        proprietaires.push(new Proprietaire(doc.id, doc.data()));
-      });
+      // Create proprietaire objects
+      for (const doc of proprietairesSnapshot.docs) {
+        const proprietaire = new Proprietaire(doc.id, doc.data());
+
+        // If the proprietaire has an appartementId, fetch the apartment details
+        if (proprietaire.appartementId) {
+          const appartementDoc = await db.collection('appartements').doc(proprietaire.appartementId).get();
+          if (appartementDoc.exists) {
+            // Update the apartmentNumber with the actual apartment number
+            proprietaire.apartmentNumber = appartementDoc.data().numero;
+          }
+        }
+
+        proprietaires.push(proprietaire);
+      }
 
       return proprietaires;
     } catch (error) {

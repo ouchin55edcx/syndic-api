@@ -2,7 +2,6 @@ const Charge = require('../models/charge');
 const Appartement = require('../models/appartement');
 const Immeuble = require('../models/immeuble');
 const Proprietaire = require('../models/proprietaire');
-const Payment = require('../models/payment');
 const { admin } = require('../config/firebase-config');
 
 exports.createCharge = async (req, res) => {
@@ -85,22 +84,6 @@ exports.getAllCharges = async (req, res) => {
 
     const charges = await Charge.findBySyndicId(req.userId);
 
-    // Fetch payments for each charge to update montantPaye and montantRestant
-    for (const charge of charges) {
-      const payments = await Payment.findByChargeId(charge.id);
-      const confirmedPayments = payments.filter(p => p.statut === 'confirmé');
-
-      // Calculate total paid amount
-      const totalPaid = confirmedPayments.reduce((sum, payment) =>
-        sum + parseFloat(payment.montant), 0
-      );
-
-      // Update charge with payment information
-      charge.montantPaye = totalPaid;
-      charge.montantRestant = Math.max(0, parseFloat(charge.montant) - totalPaid);
-      charge.paiements = confirmedPayments.map(p => p.toJSON());
-    }
-
     return res.status(200).json({
       success: true,
       count: charges.length,
@@ -148,22 +131,6 @@ exports.getChargesByAppartement = async (req, res) => {
 
     const charges = await Charge.findByAppartementId(appartementId);
 
-    // Fetch payments for each charge to update montantPaye and montantRestant
-    for (const charge of charges) {
-      const payments = await Payment.findByChargeId(charge.id);
-      const confirmedPayments = payments.filter(p => p.statut === 'confirmé');
-
-      // Calculate total paid amount
-      const totalPaid = confirmedPayments.reduce((sum, payment) =>
-        sum + parseFloat(payment.montant), 0
-      );
-
-      // Update charge with payment information
-      charge.montantPaye = totalPaid;
-      charge.montantRestant = Math.max(0, parseFloat(charge.montant) - totalPaid);
-      charge.paiements = confirmedPayments.map(p => p.toJSON());
-    }
-
     return res.status(200).json({
       success: true,
       count: charges.length,
@@ -199,22 +166,6 @@ exports.getMyCharges = async (req, res) => {
     }
 
     const charges = await Charge.findByProprietaireId(proprietaireId);
-
-    // Fetch payments for each charge to update montantPaye and montantRestant
-    for (const charge of charges) {
-      const payments = await Payment.findByChargeId(charge.id);
-      const confirmedPayments = payments.filter(p => p.statut === 'confirmé');
-
-      // Calculate total paid amount
-      const totalPaid = confirmedPayments.reduce((sum, payment) =>
-        sum + parseFloat(payment.montant), 0
-      );
-
-      // Update charge with payment information
-      charge.montantPaye = totalPaid;
-      charge.montantRestant = Math.max(0, parseFloat(charge.montant) - totalPaid);
-      charge.paiements = confirmedPayments.map(p => p.toJSON());
-    }
 
     const appartements = await Appartement.findByProprietaireId(proprietaireId);
     const chargesByAppartement = {};
@@ -300,22 +251,6 @@ exports.getChargesByProprietaire = async (req, res) => {
 
     const charges = await Charge.findByProprietaireId(proprietaireId);
 
-    // Fetch payments for each charge to update montantPaye and montantRestant
-    for (const charge of charges) {
-      const payments = await Payment.findByChargeId(charge.id);
-      const confirmedPayments = payments.filter(p => p.statut === 'confirmé');
-
-      // Calculate total paid amount
-      const totalPaid = confirmedPayments.reduce((sum, payment) =>
-        sum + parseFloat(payment.montant), 0
-      );
-
-      // Update charge with payment information
-      charge.montantPaye = totalPaid;
-      charge.montantRestant = Math.max(0, parseFloat(charge.montant) - totalPaid);
-      charge.paiements = confirmedPayments.map(p => p.toJSON());
-    }
-
     const appartements = await Appartement.findByProprietaireId(proprietaireId);
     const chargesByAppartement = {};
 
@@ -381,20 +316,6 @@ exports.getChargeById = async (req, res) => {
         });
       }
     }
-
-    // Fetch payments for this charge
-    const payments = await Payment.findByChargeId(charge.id);
-    const confirmedPayments = payments.filter(p => p.statut === 'confirmé');
-
-    // Calculate total paid amount
-    const totalPaid = confirmedPayments.reduce((sum, payment) =>
-      sum + parseFloat(payment.montant), 0
-    );
-
-    // Update charge with payment information
-    charge.montantPaye = totalPaid;
-    charge.montantRestant = Math.max(0, parseFloat(charge.montant) - totalPaid);
-    charge.paiements = confirmedPayments.map(p => p.toJSON());
 
     return res.status(200).json({
       success: true,

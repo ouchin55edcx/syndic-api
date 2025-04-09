@@ -59,7 +59,7 @@ exports.createPayment = async (req, res) => {
       await Notification.create({
         userId: charge.syndicId,
         title: 'Nouveau paiement en attente',
-        message: `Un paiement de ${montant}€ a été effectué pour la charge "${charge.titre}" et est en attente de confirmation.`,
+        message: `Un paiement de ${montant} DH a été effectué pour la charge "${charge.titre}" et est en attente de confirmation.`,
         type: 'info',
         relatedTo: 'payment',
         relatedId: payment.id
@@ -132,7 +132,7 @@ exports.createPayment = async (req, res) => {
         await Notification.create({
           userId: proprietaireId,
           title: 'Paiement confirmé',
-          message: `Votre paiement de ${montant}€ pour la charge "${charge.titre}" a été confirmé. ${payment.isPartial ? `Montant restant à payer: ${payment.remainingAmount}€.` : 'La charge est entièrement payée.'}`,
+          message: `Votre paiement de ${montant} DH pour la charge "${charge.titre}" a été confirmé. ${payment.isPartial ? `Montant restant à payer: ${payment.remainingAmount} DH.` : 'La charge est entièrement payée.'}`,
           type: 'success',
           relatedTo: 'payment',
           relatedId: payment.id
@@ -250,7 +250,7 @@ exports.confirmPayment = async (req, res) => {
       await Notification.create({
         userId: payment.proprietaireId,
         title: 'Paiement confirmé',
-        message: `Votre paiement de ${payment.montant}€ a été confirmé. ${charge.montantRestant > 0 ? `Montant restant à payer: ${charge.montantRestant}€.` : 'La charge est entièrement payée.'}`,
+        message: `Votre paiement de ${payment.montant} DH a été confirmé. ${charge.montantRestant > 0 ? `Montant restant à payer: ${charge.montantRestant} DH.` : 'La charge est entièrement payée.'}`,
         type: 'success',
         relatedTo: 'payment',
         relatedId: payment.id
@@ -379,7 +379,7 @@ exports.rejectPayment = async (req, res) => {
       await Notification.create({
         userId: payment.proprietaireId,
         title: 'Paiement rejeté',
-        message: `Votre paiement de ${payment.montant}€ a été rejeté. Raison: ${reason || 'Non spécifiée'}`,
+        message: `Votre paiement de ${payment.montant} DH a été rejeté. Raison: ${reason || 'Non spécifiée'}`,
         type: 'error',
         relatedTo: 'payment',
         relatedId: payment.id
@@ -626,36 +626,11 @@ exports.generatePaymentReminder = async (req, res) => {
       });
     }
 
-    // Check if the charge is actually fully paid by calculating the total payments
-    const chargePayments = await Payment.findByChargeId(chargeId);
-    const confirmedPayments = chargePayments.filter(p => p.statut === 'confirmé');
-    const totalPaid = confirmedPayments.reduce((sum, payment) =>
-      sum + parseFloat(payment.montant), 0
-    );
-    const chargeMontant = parseFloat(charge.montant);
-
-    // Only block sending notice if the charge is actually fully paid
-    if (totalPaid >= chargeMontant) {
+    if (charge.statut === 'payé') {
       return res.status(400).json({
         success: false,
         message: 'Cette charge est déjà payée intégralement'
       });
-    }
-
-    // If the status is 'payé' but the charge is not actually fully paid,
-    // update the charge status to reflect the actual payment status
-    if (charge.statut === 'payé' && totalPaid < chargeMontant) {
-      await db.collection('charges').doc(chargeId).update({
-        statut: 'partiellement payé',
-        montantPaye: totalPaid,
-        montantRestant: chargeMontant - totalPaid,
-        updatedAt: new Date().toISOString()
-      });
-
-      // Update the charge object for use in the rest of this function
-      charge.statut = 'partiellement payé';
-      charge.montantPaye = totalPaid;
-      charge.montantRestant = chargeMontant - totalPaid;
     }
 
     if (charge.syndicId !== req.userId) {
@@ -703,7 +678,8 @@ exports.generatePaymentReminder = async (req, res) => {
       });
     }
 
-    // Use the payments we already fetched above
+    const payments = await Payment.findByChargeId(chargeId);
+
     const pdfsDir = ensureUploadsDirectory();
     const pdfFileName = `avis_client_${chargeId}_${new Date().getTime()}.pdf`;
     const pdfPath = path.join(pdfsDir, pdfFileName);
@@ -713,14 +689,14 @@ exports.generatePaymentReminder = async (req, res) => {
       proprietaire,
       appartement,
       immeuble,
-      payments: chargePayments
+      payments
     }, pdfPath);
 
     const pdfUrl = `/uploads/pdfs/${pdfFileName}`;
     const notification = await Notification.create({
       userId: proprietaire.id,
       title: 'Avis de paiement',
-      message: `Un avis de paiement a été généré pour la charge "${charge.titre}". Montant restant à payer: ${charge.montantRestant}€.`,
+      message: `Un avis de paiement a été généré pour la charge "${charge.titre}". Montant restant à payer: ${charge.montantRestant} DH.`,
       type: 'warning',
       relatedTo: 'charge',
       relatedId: charge.id,

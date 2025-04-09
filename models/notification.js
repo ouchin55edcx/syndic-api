@@ -126,13 +126,12 @@ class Notification {
       const notificationData = {
         userId: proprietaireId,
         title: 'Payment Reminder',
-        message: `You have an overdue payment for: ${charge.titre} of ${charge.montant}€. Please pay as soon as possible.`,
+        message: `You have an overdue payment for: ${charge.titre} of ${charge.montant} DH. Please pay as soon as possible.`,
         type: 'warning',
         relatedTo: 'charge',
         relatedId: charge.id
       };
 
-      // If a PDF URL is provided, add it to the notification
       if (pdfUrl) {
         notificationData.pdfUrl = pdfUrl;
       }
@@ -149,7 +148,7 @@ class Notification {
       const notificationData = {
         userId: proprietaireId,
         title: 'Payment Confirmed',
-        message: `Your payment of ${payment.montant}€ for ${charge.titre} has been confirmed.`,
+        message: `Your payment of ${payment.montant} DH for ${charge.titre} has been confirmed.`,
         type: 'success',
         relatedTo: 'payment',
         relatedId: payment.id

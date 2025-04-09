@@ -1,6 +1,7 @@
 const Proprietaire = require('../models/proprietaire');
+const Appartement = require('../models/appartement');
 const Syndic = require('../models/syndic');
-const { admin } = require('../config/firebase-config');
+const { admin, db } = require('../config/firebase-config');
 const { sendProprietaireWelcomeEmail } = require('../services/email-service');
 
 exports.createProprietaire = async (req, res) => {
@@ -31,20 +32,45 @@ exports.createProprietaire = async (req, res) => {
       });
     }
 
+    // Check if apartment exists and is not already assigned to another proprietaire
+    const appartementRef = db.collection('appartements').doc(appartementId);
+    const appartementDoc = await appartementRef.get();
+
+    if (!appartementDoc.exists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Apartment not found'
+      });
+    }
+
+    if (appartementDoc.data().proprietaireId) {
+      return res.status(400).json({
+        success: false,
+        message: 'This apartment is already assigned to another proprietaire'
+      });
+    }
+
     const proprietaireData = {
       email,
       password,
       firstName,
       lastName,
       phoneNumber,
-      appartementId, // Required field for assigning to an appartement
-      apartmentNumber, // Legacy field
-      buildingId, // Legacy field
+      appartementId,
+      apartmentNumber,
+      buildingId,
       ownershipDate: ownershipDate || new Date().toISOString(),
       createdBy: req.userId
     };
 
+    // Create the proprietaire
     const proprietaire = await Proprietaire.create(proprietaireData);
+
+    // Update the apartment with the new proprietaire ID
+    await appartementRef.update({
+      proprietaireId: proprietaire.id,
+      updatedAt: new Date().toISOString()
+    });
 
     try {
       await sendProprietaireWelcomeEmail(proprietaire, password);

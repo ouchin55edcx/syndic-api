@@ -34,7 +34,7 @@ class Payment {
 
       let isPartial = false;
       let remainingAmount = 0;
-      let newChargeStatus = 'payé';
+      let newChargeStatus;
 
       const previousPaymentsSnapshot = await db.collection('payments')
         .where('chargeId', '==', paymentData.chargeId)
@@ -49,11 +49,19 @@ class Payment {
       const totalAfterThisPayment = totalPaidSoFar + paymentMontant;
       remainingAmount = Math.max(0, chargeMontant - totalAfterThisPayment);
 
-      if (remainingAmount > 0) {
+      // Determine if this is a partial payment
+      if (paymentMontant < chargeMontant) {
         isPartial = true;
+      }
+
+      // Determine the charge status based on total paid amount
+      if (totalAfterThisPayment === 0) {
+        newChargeStatus = 'non payé';
+      } else if (remainingAmount > 0) {
+        // If there's any remaining amount, it's only partially paid
         newChargeStatus = 'partiellement payé';
-      } else {
-        isPartial = false;
+      } else if (totalAfterThisPayment >= chargeMontant) {
+        // Only mark as fully paid if the total payments equal or exceed the charge amount
         newChargeStatus = 'payé';
       }
 
@@ -248,20 +256,61 @@ class Payment {
 
       await db.collection('payments').doc(this.id).update(updateData);
 
-      if (paymentData.statut === 'confirmé' && this.statut !== 'confirmé') {
-        const chargeRef = db.collection('charges').doc(this.chargeId);
-        await chargeRef.update({
-          statut: 'payé',
-          updatedAt: new Date().toISOString()
-        });
-      }
+      // If payment status is changing to or from confirmed, update the charge status
+      if ((paymentData.statut === 'confirmé' && this.statut !== 'confirmé') ||
+          (this.statut === 'confirmé' && paymentData.statut !== 'confirmé')) {
 
-      if (this.statut === 'confirmé' && paymentData.statut !== 'confirmé') {
+        // Get the charge details
         const chargeRef = db.collection('charges').doc(this.chargeId);
-        await chargeRef.update({
-          statut: 'non payé',
-          updatedAt: new Date().toISOString()
-        });
+        const chargeDoc = await chargeRef.get();
+
+        if (chargeDoc.exists) {
+          const chargeData = chargeDoc.data();
+          const chargeMontant = parseFloat(chargeData.montant);
+
+          // Get all confirmed payments for this charge
+          const paymentsSnapshot = await db.collection('payments')
+            .where('chargeId', '==', this.chargeId)
+            .where('statut', '==', 'confirmé')
+            .get();
+
+          // Calculate total paid amount (excluding this payment if it's being unconfirmed)
+          let totalPaid = 0;
+          paymentsSnapshot.forEach(doc => {
+            // Skip this payment if it's being unconfirmed
+            if (doc.id === this.id && this.statut === 'confirmé' && paymentData.statut !== 'confirmé') {
+              return;
+            }
+            // Add this payment if it's being confirmed
+            if (doc.id === this.id && paymentData.statut === 'confirmé' && this.statut !== 'confirmé') {
+              totalPaid += parseFloat(paymentData.montant);
+            } else {
+              totalPaid += parseFloat(doc.data().montant);
+            }
+          });
+
+          // Determine the new charge status based on total paid amount
+          let newChargeStatus;
+          const remainingAmount = Math.max(0, chargeMontant - totalPaid);
+
+          if (totalPaid === 0) {
+            newChargeStatus = 'non payé';
+          } else if (remainingAmount > 0) {
+            // If there's any remaining amount, it's only partially paid
+            newChargeStatus = 'partiellement payé';
+          } else if (totalPaid >= chargeMontant) {
+            // Only mark as fully paid if the total payments equal or exceed the charge amount
+            newChargeStatus = 'payé';
+          }
+
+          // Update the charge with new status and payment amounts
+          await chargeRef.update({
+            statut: newChargeStatus,
+            montantPaye: totalPaid,
+            montantRestant: remainingAmount,
+            updatedAt: new Date().toISOString()
+          });
+        }
       }
 
       Object.keys(updateData).forEach(key => {
@@ -278,11 +327,50 @@ class Payment {
   async delete() {
     try {
       if (this.statut === 'confirmé') {
+        // Get the charge details
         const chargeRef = db.collection('charges').doc(this.chargeId);
-        await chargeRef.update({
-          statut: 'non payé',
-          updatedAt: new Date().toISOString()
-        });
+        const chargeDoc = await chargeRef.get();
+
+        if (chargeDoc.exists) {
+          const chargeData = chargeDoc.data();
+          const chargeMontant = parseFloat(chargeData.montant);
+
+          // Get all confirmed payments for this charge except this one
+          const paymentsSnapshot = await db.collection('payments')
+            .where('chargeId', '==', this.chargeId)
+            .where('statut', '==', 'confirmé')
+            .get();
+
+          // Calculate total paid amount (excluding this payment)
+          let totalPaid = 0;
+          paymentsSnapshot.forEach(doc => {
+            if (doc.id !== this.id) { // Skip this payment since it's being deleted
+              totalPaid += parseFloat(doc.data().montant);
+            }
+          });
+
+          // Determine the new charge status based on total paid amount
+          let newChargeStatus;
+          const remainingAmount = Math.max(0, chargeMontant - totalPaid);
+
+          if (totalPaid === 0) {
+            newChargeStatus = 'non payé';
+          } else if (remainingAmount > 0) {
+            // If there's any remaining amount, it's only partially paid
+            newChargeStatus = 'partiellement payé';
+          } else if (totalPaid >= chargeMontant) {
+            // Only mark as fully paid if the total payments equal or exceed the charge amount
+            newChargeStatus = 'payé';
+          }
+
+          // Update the charge with new status and payment amounts
+          await chargeRef.update({
+            statut: newChargeStatus,
+            montantPaye: totalPaid,
+            montantRestant: remainingAmount,
+            updatedAt: new Date().toISOString()
+          });
+        }
       }
 
       await db.collection('payments').doc(this.id).delete();

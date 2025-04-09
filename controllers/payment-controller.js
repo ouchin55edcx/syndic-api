@@ -626,11 +626,36 @@ exports.generatePaymentReminder = async (req, res) => {
       });
     }
 
-    if (charge.statut === 'payé') {
+    // Check if the charge is actually fully paid by calculating the total payments
+    const payments = await Payment.findByChargeId(chargeId);
+    const confirmedPayments = payments.filter(p => p.statut === 'confirmé');
+    const totalPaid = confirmedPayments.reduce((sum, payment) =>
+      sum + parseFloat(payment.montant), 0
+    );
+    const chargeMontant = parseFloat(charge.montant);
+
+    // Only block sending notice if the charge is actually fully paid
+    if (totalPaid >= chargeMontant) {
       return res.status(400).json({
         success: false,
         message: 'Cette charge est déjà payée intégralement'
       });
+    }
+
+    // If the status is 'payé' but the charge is not actually fully paid,
+    // update the charge status to reflect the actual payment status
+    if (charge.statut === 'payé' && totalPaid < chargeMontant) {
+      await db.collection('charges').doc(chargeId).update({
+        statut: 'partiellement payé',
+        montantPaye: totalPaid,
+        montantRestant: chargeMontant - totalPaid,
+        updatedAt: new Date().toISOString()
+      });
+
+      // Update the charge object for use in the rest of this function
+      charge.statut = 'partiellement payé';
+      charge.montantPaye = totalPaid;
+      charge.montantRestant = chargeMontant - totalPaid;
     }
 
     if (charge.syndicId !== req.userId) {
